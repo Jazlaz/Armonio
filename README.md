@@ -1,9 +1,12 @@
-Digital Keys VST and Standalone created with Juce
+Polyphonic wavetable synthesizer built with JUCE (C++), available as VST3 and Standalone. Features 32 voices with additive harmonic synthesis — all waveforms (Sine, Saw, Square, Triangle) are constructed from a single sine wavetable using Fourier series coefficients, enabling smooth fractional harmonic blending.
 
-Sine, Saw, Square and Tri waves.
+Key features:
 
-You can add Harmonics and Subharmonics.
+16 harmonics with continuous crossfading and 8 subharmonics
+Saw detune (chorus effect via dual-phase oscillators)
+Draggable ADSR envelope editor
+Per-voice harmonic LFO with 5 modulation target modes
+Hammond organ elements: quint, sub-octave, and percussive chimes
+Zero audio-thread allocations for real-time performance
 
-*Work in progress*
-
-<img width="791" height="499" alt="Armonio" src="https://github.com/user-attachments/assets/45386606-bf03-4d0f-bc9d-9d4b2124a954" />
+<img width="799" height="419" alt="armonio" src="https://github.com/user-attachments/assets/194de07b-5b7b-43f6-b864-b790c3fccf6f" />
