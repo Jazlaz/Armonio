@@ -6,8 +6,8 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 
 ---
 
-<!-- RECOMMENDED IMAGE: Full GUI screenshot showing all tabs -->
-<!-- ![Armonio GUI](docs/gui_overview.png) -->
+<img width="799" height="536" alt="envelop_withHarmonics" src="https://github.com/user-attachments/assets/3bb5f4db-f55d-41ec-bac7-71399ac7eb60" />
+
 
 ---
 
@@ -23,16 +23,14 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 - **Percussive chimes** — 2nd and 3rd harmonic transients with independent envelope
 - **LFO** with 5 modes, depth and speed control
 
-<!-- RECOMMENDED IMAGE: Close-up of the Hammond tab with drawbars -->
-<!-- ![Hammond Tab](docs/hammond_tab.png) -->
+<img width="766" height="383" alt="hamondCloseup" src="https://github.com/user-attachments/assets/ec84ffb2-2d5f-488d-b2e5-eb35f95835e2" />
 
 ### Leslie Rotary Effect
 - Two-band rotary simulation (horn + drum) with crossover at 800 Hz
 - **Slow / Fast** speed switch with smooth acceleration/deceleration ramp
 - Doppler pitch modulation + stereo panning sweep
-
-<!-- RECOMMENDED IMAGE: Rotary tab or the hardware setup with Pi -->
-<!-- ![Rotary Effect](docs/rotary_tab.png) -->
+- 
+<img width="254" height="236" alt="LeslieCU" src="https://github.com/user-attachments/assets/21851e24-19f4-4640-8278-4397ab8dbf2c" />
 
 ### Voice Management
 - **12-voice polyphony** with artifact-free voice stealing (crossfade on steal)
