@@ -2,11 +2,15 @@ cmake_minimum_required(VERSION 3.22)
 
 project(ARMONIO VERSION 0.0.1)
 
-if(DEFINED JUCE_PATH)
-    add_subdirectory(${JUCE_PATH} JUCE)
-else()
-    add_subdirectory(C:/Users/giann/Documents/JUCEPROJECTS/JUCE JUCE)
+if(NOT DEFINED JUCE_PATH)
+    set(JUCE_PATH "C:/Users/giann/Documents/JUCEPROJECTS/JUCE")
 endif()
+
+if(NOT EXISTS "${JUCE_PATH}/CMakeLists.txt")
+    message(FATAL_ERROR "JUCE not found at '${JUCE_PATH}'.\nPlease set -DJUCE_PATH=/path/to/JUCE")
+endif()
+
+add_subdirectory(${JUCE_PATH} JUCE)
 
 juce_add_plugin(Armonio
         IS_SYNTH TRUE
