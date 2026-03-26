@@ -162,6 +162,3 @@ sudo alsactl store
 
 ---
 
-## License
-
-MIT
