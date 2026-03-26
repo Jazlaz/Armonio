@@ -1,0 +1,169 @@
+# Armonio
+
+**Armonio** is a polyphonic additive synthesizer built with JUCE, designed to run fully headless on a **Raspberry Pi** as a standalone DAWless instrument.
+
+It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice ADSR, LFO, and automatic MIDI device detection — all controllable from a hardware MIDI controller with no screen required.
+
+---
+
+<!-- RECOMMENDED IMAGE: Full GUI screenshot showing all tabs -->
+<!-- ![Armonio GUI](docs/gui_overview.png) -->
+
+---
+
+## Features
+
+### Synthesis
+- **Three waveforms** — Sine, Square, Triangle (additive)
+- **Harmonic & subharmonic control** — up to 16 harmonics, 8 subharmonics
+- **Per-voice ADSR** envelope
+
+### Hammond Organ Section
+- **8 drawbar registers**: +1 Oct, Oct+Fifth, +2 Oct, 2Oct+Third, 2Oct+Fifth, +3 Oct, Fifth, Sub Octave
+- **Percussive chimes** — 2nd and 3rd harmonic transients with independent envelope
+- **LFO** with 5 modes, depth and speed control
+
+<!-- RECOMMENDED IMAGE: Close-up of the Hammond tab with drawbars -->
+<!-- ![Hammond Tab](docs/hammond_tab.png) -->
+
+### Leslie Rotary Effect
+- Two-band rotary simulation (horn + drum) with crossover at 800 Hz
+- **Slow / Fast** speed switch with smooth acceleration/deceleration ramp
+- Doppler pitch modulation + stereo panning sweep
+
+<!-- RECOMMENDED IMAGE: Rotary tab or the hardware setup with Pi -->
+<!-- ![Rotary Effect](docs/rotary_tab.png) -->
+
+### Voice Management
+- **12-voice polyphony** with artifact-free voice stealing (crossfade on steal)
+- Output normalization scales dynamically with active Hammond registers
+- Soft-clip limiter on master output
+
+### Raspberry Pi / DAWless
+- Runs headlessly as a **systemd service** — boot and play, no screen needed
+- **Auto-detects all MIDI input devices** on startup and hot-plug (no configuration)
+- Tested on **Raspberry Pi Zero 2 W** with **PCM5122 DAC HAT**
+- Cross-compiled from Windows (WSL) using a Pi toolchain
+
+<!-- RECOMMENDED IMAGE: Photo of the Pi hardware setup — Pi board + DAC HAT + MIDI controller -->
+<!-- ![Pi Hardware Setup](docs/pi_hardware.jpg) -->
+
+---
+
+## Hardware
+
+| Component | Model used |
+|-----------|-----------|
+| SBC | Raspberry Pi Zero 2 W |
+| DAC HAT | IQaudIO PCM5122 |
+| MIDI Controller | Arturia Minilab MK2 |
+
+---
+
+## MIDI Mapping (Arturia Minilab MK2)
+
+| CC | Control |
+|----|---------|
+| 20 | Waveform → Sine |
+| 21 | Waveform → Square |
+| 22 | Waveform → Triangle |
+| 23 | Chime 2 on/off |
+| 24 | Chime 3 on/off |
+| 25 | Rotary on/off |
+| 26 | Rotary Slow/Fast |
+| 27 | Mute |
+| 73–80 | Hammond drawbars (in tab order) |
+| 81 | Harmonics |
+| 82 | Subharmonics |
+| 84–87 | Attack / Decay / Sustain / Release |
+
+---
+
+## Building
+
+### Prerequisites
+- [JUCE](https://juce.com/) — clone separately and point `JUCE_PATH` to it
+- CMake 3.22+
+- C++17 compiler
+
+### Desktop (Windows / macOS / Linux)
+
+```bash
+cmake -S . -B build -DJUCE_PATH=/path/to/JUCE
+cmake --build build --config Release
+```
+
+### Raspberry Pi (cross-compile from WSL)
+
+Requires a Pi sysroot at `~/pi-sysroot` and an aarch64 cross-compiler.
+Sync sysroot from your Pi once:
+
+```bash
+rsync -avzL piranesi@<pi-ip>:/lib/aarch64-linux-gnu/ ~/pi-sysroot/lib/aarch64-linux-gnu/
+rsync -avzL piranesi@<pi-ip>:/usr/lib/aarch64-linux-gnu/ ~/pi-sysroot/usr/lib/aarch64-linux-gnu/
+rsync -avzL piranesi@<pi-ip>:/usr/include/ ~/pi-sysroot/usr/include/
+```
+
+Then build and deploy:
+
+```bash
+cmake -S . -B ~/build-pimonio \
+      -DCMAKE_TOOLCHAIN_FILE=/path/to/RaspberryPiToolchain.cmake \
+      -DJUCE_PATH=/path/to/JUCE \
+      -DCMAKE_BUILD_TYPE=Release
+
+cmake --build ~/build-pimonio --config Release -j4
+
+scp ~/build-pimonio/Armonio_artefacts/Release/Standalone/Armonio \
+    user@<pi-ip>:~/
+```
+
+---
+
+## Running Headless on Pi
+
+Copy the binary to your Pi, then set it up as a service:
+
+```bash
+sudo nano /etc/systemd/system/armonio.service
+```
+
+```ini
+[Unit]
+Description=Armonio Synth
+After=sound.target
+
+[Service]
+User=pi
+ExecStart=/home/pi/Armonio
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable armonio
+sudo systemctl start armonio
+```
+
+Armonio will now launch automatically on every boot with all connected MIDI devices enabled.
+
+---
+
+## PCM5122 DAC — Eliminating Clicks
+
+The PCM5122 has a hardware auto-mute that causes audible clicks between notes. Disable it on the Pi:
+
+```bash
+amixer -c 0 sset "Auto Mute" 0
+amixer -c 0 sset "Auto Mute Mono" 0
+sudo alsactl store
+```
+
+---
+
+## License
+
+MIT
