@@ -1,0 +1,11 @@
+.idea/
+.vs/
+.claude/
+cmake-build-*/
+build-*/
+*.exe
+*.dll
+*.lib
+*.pdb
+CMakeFiles/
+CMakeCache.txt
