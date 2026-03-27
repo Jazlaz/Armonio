@@ -29,7 +29,7 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 - Two-band rotary simulation (horn + drum) with crossover at 800 Hz
 - **Slow / Fast** speed switch with smooth acceleration/deceleration ramp
 - Doppler pitch modulation + stereo panning sweep
-- 
+
 <img width="254" height="236" alt="LeslieCU" src="https://github.com/user-attachments/assets/21851e24-19f4-4640-8278-4397ab8dbf2c" />
 
 ### Voice Management
@@ -44,8 +44,6 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 - Cross-compiled from Windows (WSL) using a Pi toolchain
 
 <img width="460" height="284" alt="piwithminilabsmaller" src="https://github.com/user-attachments/assets/68296cd8-f00f-4739-8f74-4906ded6e7cb" />
-
-
 
 ---
 
@@ -133,8 +131,8 @@ Description=Armonio Synth
 After=sound.target
 
 [Service]
-User=pi
-ExecStart=/home/pi/Armonio
+User=<your-username>
+ExecStart=/home/<your-username>/Armonio
 Restart=on-failure
 RestartSec=3
 
