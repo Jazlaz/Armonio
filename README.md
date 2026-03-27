@@ -6,8 +6,6 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 
 ---
 
----
-
 ## Download
 
 | Platform | File |
