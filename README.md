@@ -59,7 +59,7 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 
 ---
 
-## MIDI Mapping (Arturia Minilab MK2)
+## MIDI Mapping 
 
 | CC | Control |
 |----|---------|
