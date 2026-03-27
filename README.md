@@ -6,9 +6,6 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 
 ---
 
-<img width="799" height="536" alt="envelop_withHarmonics" src="https://github.com/user-attachments/assets/3bb5f4db-f55d-41ec-bac7-71399ac7eb60" />
-
-
 ---
 
 ## Download
@@ -26,6 +23,8 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 - **Three waveforms** — Sine, Square, Triangle (additive)
 - **Harmonic & subharmonic control** — up to 16 harmonics, 8 subharmonics
 - **Per-voice ADSR** envelope
+
+<img width="799" height="536" alt="envelop_withHarmonics" src="https://github.com/user-attachments/assets/3bb5f4db-f55d-41ec-bac7-71399ac7eb60" />
 
 ### Hammond Organ Section
 - **8 drawbar registers**: +1 Oct, Oct+Fifth, +2 Oct, 2Oct+Third, 2Oct+Fifth, +3 Oct, Fifth, Sub Octave
