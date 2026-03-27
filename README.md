@@ -56,11 +56,11 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 |-----------|-----------|
 | SBC | Raspberry Pi Zero 2 W |
 | DAC HAT | IQaudIO PCM5122 |
-| MIDI Controller | Arturia Minilab MK2 |
+| MIDI Controller | Any class-compliant MIDI controller |
 
 ---
 
-## MIDI Mapping (Arturia Minilab MK2)
+## MIDI CC Mapping
 
 | CC | Control |
 |----|---------|
@@ -99,9 +99,9 @@ Requires a Pi sysroot at `~/pi-sysroot` and an aarch64 cross-compiler.
 Sync sysroot from your Pi once:
 
 ```bash
-rsync -avzL piranesi@<pi-ip>:/lib/aarch64-linux-gnu/ ~/pi-sysroot/lib/aarch64-linux-gnu/
-rsync -avzL piranesi@<pi-ip>:/usr/lib/aarch64-linux-gnu/ ~/pi-sysroot/usr/lib/aarch64-linux-gnu/
-rsync -avzL piranesi@<pi-ip>:/usr/include/ ~/pi-sysroot/usr/include/
+rsync -avzL user@<pi-ip>:/lib/aarch64-linux-gnu/ ~/pi-sysroot/lib/aarch64-linux-gnu/
+rsync -avzL user@<pi-ip>:/usr/lib/aarch64-linux-gnu/ ~/pi-sysroot/usr/lib/aarch64-linux-gnu/
+rsync -avzL user@<pi-ip>:/usr/include/ ~/pi-sysroot/usr/include/
 ```
 
 Then build and deploy:
