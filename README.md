@@ -49,6 +49,8 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 - Tested on **Raspberry Pi Zero 2 W** with **PCM5122 DAC HAT**
 - Cross-compiled from Windows (WSL) using a Pi toolchain
 
+- [Video demonstration] (https://www.youtube.com/watch?v=WYv2V_M6UVY)
+
 <img width="460" height="284" alt="piwithminilabsmaller" src="https://github.com/user-attachments/assets/68296cd8-f00f-4739-8f74-4906ded6e7cb" />
 
 ---
