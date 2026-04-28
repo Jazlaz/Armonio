@@ -5,12 +5,14 @@
 
 //==============================================================================
 class ADSRGraphComponent : public juce::Component,
-                           private juce::AudioProcessorValueTreeState::Listener
+                           private juce::AudioProcessorValueTreeState::Listener,
+                           private juce::Timer
 {
 public:
     ADSRGraphComponent(juce::AudioProcessorValueTreeState& apvts,
-                       std::atomic<bool>& mutedFlag)
-        : apvts(apvts), muted(mutedFlag)
+                       std::atomic<bool>& mutedFlag,
+                       std::function<int()> voiceCountGetter)
+        : apvts(apvts), muted(mutedFlag), getVoiceCount(std::move(voiceCountGetter))
     {
         attack  = apvts.getRawParameterValue("attack")->load();
         decay   = apvts.getRawParameterValue("decay")->load();
@@ -33,10 +35,19 @@ public:
             muted.store(muteButton.getToggleState());
         };
         addAndMakeVisible(muteButton);
+
+        voiceLabel.setJustificationType(juce::Justification::centred);
+        voiceLabel.setFont(juce::Font(10.0f));
+        voiceLabel.setColour(juce::Label::textColourId, juce::Colour(0xff888888));
+        voiceLabel.setText("0 / 16", juce::dontSendNotification);
+        addAndMakeVisible(voiceLabel);
+
+        startTimerHz(10);   // update 10 times per second — low overhead, responsive
     }
 
     ~ADSRGraphComponent() override
     {
+        stopTimer();
         apvts.removeParameterListener("attack",  this);
         apvts.removeParameterListener("decay",   this);
         apvts.removeParameterListener("sustain", this);
@@ -109,6 +120,7 @@ public:
     void resized() override
     {
         muteButton.setBounds(getWidth() - 62, 6, 54, 24);
+        voiceLabel.setBounds(getWidth() - 62, 32, 54, 14);
     }
 
     void mouseDown(const juce::MouseEvent& e) override
@@ -146,7 +158,7 @@ public:
         else if (draggedHandle == 2) // Release — X only
         {
             float normX = juce::jlimit(0.0f, 1.0f, (px - gx - 3.0f * segW) / segW);
-            setParam("release", 0.001f + normX * (5.0f - 0.001f));
+            setParam("release", 0.001f + normX * (2.5f - 0.001f));
         }
     }
 
@@ -175,7 +187,7 @@ private:
         float segW = w / 4.0f;
         float aN = (attack  - 0.001f) / (1.0f - 0.001f);
         float dN = (decay   - 0.001f) / (2.0f - 0.001f);
-        float rN = (release - 0.001f) / (5.0f - 0.001f);
+        float rN = (release - 0.001f) / (2.5f - 0.001f);
         return {
             gx + segW * aN,                   // ax
             gy,                                // ay (attack peak always at top)
@@ -197,6 +209,20 @@ private:
         return -1;
     }
 
+    void timerCallback() override
+    {
+        if (getVoiceCount)
+        {
+            const int n = getVoiceCount();
+            voiceLabel.setText(juce::String(n) + " / 16", juce::dontSendNotification);
+            // Colour shifts from grey → amber → red as voices fill up
+            juce::Colour col = (n <= 8)  ? juce::Colour(0xff888888)
+                             : (n <= 10) ? juce::Colour(0xffccaa00)
+                                         : juce::Colour(0xffcc3333);
+            voiceLabel.setColour(juce::Label::textColourId, col);
+        }
+    }
+
     void parameterChanged(const juce::String& paramID, float newValue) override
     {
         if      (paramID == "attack")  attack  = newValue;
@@ -213,9 +239,11 @@ private:
 
     juce::AudioProcessorValueTreeState& apvts;
     std::atomic<bool>& muted;
+    std::function<int()> getVoiceCount;
     float attack = 0.01f, decay = 0.1f, sustain = 0.8f, release = 0.3f;
     int draggedHandle = -1;
     juce::TextButton muteButton;
+    juce::Label      voiceLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ADSRGraphComponent)
 };
@@ -568,6 +596,294 @@ private:
 };
 
 //==============================================================================
+class AirComponent : public juce::Component
+{
+public:
+    explicit AirComponent(juce::AudioProcessorValueTreeState& apvts) : apvts(apvts)
+    {
+        auto setupSlider = [&](juce::Slider& s, juce::Label& l, const juce::String& text)
+        {
+            s.setSliderStyle(juce::Slider::LinearHorizontal);
+            s.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 60, 20);
+            addAndMakeVisible(s);
+            l.setText(text, juce::dontSendNotification);
+            l.setJustificationType(juce::Justification::centredRight);
+            l.setColour(juce::Label::textColourId, juce::Colours::white);
+            addAndMakeVisible(l);
+        };
+
+        setupSlider(windLevelSlider,        windLevelLabel,        "Mix");
+        setupSlider(windBpFreqSlider,       windBpFreqLabel,       "Low Cut (Hz)");
+        setupSlider(windUpperThreshSlider,  windUpperThreshLabel,  "High Cut (Hz)");
+        setupSlider(windWidthSlider,        windWidthLabel,        "Air Harmonics");
+        setupSlider(chiffLevelSlider,       chiffLevelLabel,       "Chiff");
+        windWidthSlider.setRange(1.0, 32.0, 1.0);
+        windWidthSlider.textFromValueFunction = [](double v) { return juce::String((int)v); };
+
+        windLevelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "windLevel", windLevelSlider);
+        windBpFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "windThreshold", windBpFreqSlider);
+        windUpperThreshAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "windUpperThreshold", windUpperThreshSlider);
+        windWidthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "windWidth", windWidthSlider);
+        chiffLevelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "chiffLevel", chiffLevelSlider);
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        g.setColour(juce::Colour(0xff1a1a1a));
+        g.fillAll();
+        g.setColour(juce::Colours::white);
+        g.setFont(juce::Font(13.0f, juce::Font::bold));
+        g.drawText("AIR / WIND NOISE", getLocalBounds().removeFromTop(22).toFloat(),
+                   juce::Justification::centred);
+    }
+
+    void resized() override
+    {
+        auto area = getLocalBounds();
+        area.removeFromTop(22);
+        auto inner = area.withSizeKeepingCentre(area.getWidth() - 40, area.getHeight());
+
+        auto placeRow = [&](juce::Label& lbl, juce::Slider& s)
+        {
+            auto row = inner.removeFromTop(30);
+            lbl.setBounds(row.removeFromLeft(100));
+            s.setBounds(row);
+            inner.removeFromTop(10);
+        };
+
+        placeRow(windLevelLabel,       windLevelSlider);
+        placeRow(windBpFreqLabel,      windBpFreqSlider);
+        placeRow(windUpperThreshLabel, windUpperThreshSlider);
+        placeRow(windWidthLabel,       windWidthSlider);
+        placeRow(chiffLevelLabel,      chiffLevelSlider);
+    }
+
+private:
+    juce::AudioProcessorValueTreeState& apvts;
+    juce::Slider windLevelSlider, windBpFreqSlider, windUpperThreshSlider, windWidthSlider, chiffLevelSlider;
+    juce::Label  windLevelLabel,  windBpFreqLabel,  windUpperThreshLabel,  windWidthLabel,  chiffLevelLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> windLevelAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> windBpFreqAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> windUpperThreshAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> windWidthAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> chiffLevelAttachment;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AirComponent)
+};
+
+//==============================================================================
+class LadderComponent : public juce::Component
+{
+public:
+    explicit LadderComponent(juce::AudioProcessorValueTreeState& apvts) : apvts(apvts)
+    {
+        enabledButton.setButtonText("ON");
+        enabledButton.setClickingTogglesState(true);
+        enabledButton.setColour(juce::TextButton::buttonColourId,   juce::Colour(0xff333333));
+        enabledButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff2277cc));
+        enabledButton.setColour(juce::TextButton::textColourOffId,  juce::Colour(0xff888888));
+        enabledButton.setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
+        addAndMakeVisible(enabledButton);
+        enabledAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+            apvts, "ladderEnabled", enabledButton);
+
+        auto setupKnob = [&](juce::Slider& s, juce::Label& l, const juce::String& text)
+        {
+            s.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+            s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 16);
+            addAndMakeVisible(s);
+            l.setText(text, juce::dontSendNotification);
+            l.setJustificationType(juce::Justification::centred);
+            l.setColour(juce::Label::textColourId, juce::Colours::white);
+            addAndMakeVisible(l);
+        };
+
+        setupKnob(cutoffKnob,    cutoffLabel,    "Cutoff");
+        setupKnob(resonanceKnob, resonanceLabel, "Resonance");
+        setupKnob(driveKnob,     driveLabel,     "Drive");
+
+        cutoffKnob.textFromValueFunction = [](double v) -> juce::String {
+            return v >= 1000.0 ? juce::String(v / 1000.0, 1) + " kHz"
+                               : juce::String((int)v) + " Hz";
+        };
+        driveKnob.textFromValueFunction = [](double v) -> juce::String {
+            return juce::String(v, 1) + "x";
+        };
+
+        modeKnob.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+        modeKnob.setRange(0.0, 5.0, 1.0);
+        modeKnob.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 16);
+        modeKnob.textFromValueFunction = [](double v) -> juce::String {
+            static const char* names[] = { "LP 12","LP 24","HP 12","HP 24","BP 12","BP 24" };
+            return names[juce::jlimit(0, 5, (int)std::round(v))];
+        };
+        modeKnob.setNumDecimalPlacesToDisplay(0);
+        addAndMakeVisible(modeKnob);
+        modeLabel.setText("Mode", juce::dontSendNotification);
+        modeLabel.setJustificationType(juce::Justification::centred);
+        modeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        addAndMakeVisible(modeLabel);
+
+        cutoffAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "ladderCutoff",    cutoffKnob);
+        resonanceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "ladderResonance", resonanceKnob);
+        driveAttachment     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "ladderDrive",     driveKnob);
+        modeAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, "ladderMode",      modeKnob);
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        g.setColour(juce::Colour(0xff1a1a1a));
+        g.fillAll();
+        g.setColour(juce::Colours::white);
+        g.setFont(juce::Font(13.0f, juce::Font::bold));
+        g.drawText("LADDER FILTER", getLocalBounds().removeFromTop(22).toFloat(),
+                   juce::Justification::centred);
+    }
+
+    void resized() override
+    {
+        auto area     = getLocalBounds();
+        auto titleBar = area.removeFromTop(22);
+        enabledButton.setBounds(titleBar.removeFromRight(44).reduced(3, 4));
+
+        int knobSize = juce::jmin(area.getHeight() - 20, 90);
+        int labelH   = 18;
+        int gap      = 20;
+        int totalW   = knobSize * 4 + gap * 3;
+        auto block   = area.withSizeKeepingCentre(totalW, labelH + knobSize);
+
+        auto placeKnobCol = [&](juce::Label& lbl, juce::Slider& s)
+        {
+            auto col = block.removeFromLeft(knobSize);
+            block.removeFromLeft(gap);
+            lbl.setBounds(col.removeFromTop(labelH));
+            s.setBounds(col);
+        };
+
+        placeKnobCol(modeLabel,      modeKnob);
+        placeKnobCol(cutoffLabel,    cutoffKnob);
+        placeKnobCol(resonanceLabel, resonanceKnob);
+
+        // Last column — no trailing gap removal needed
+        auto col = block;
+        driveLabel.setBounds(col.removeFromTop(labelH));
+        driveKnob.setBounds(col);
+    }
+
+private:
+    juce::AudioProcessorValueTreeState& apvts;
+
+    juce::TextButton enabledButton;
+    juce::Slider     modeKnob, cutoffKnob, resonanceKnob, driveKnob;
+    juce::Label      modeLabel, cutoffLabel, resonanceLabel, driveLabel;
+
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enabledAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> modeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> cutoffAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> resonanceAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> driveAttachment;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LadderComponent)
+};
+
+//==============================================================================
+class JIComponent : public juce::Component
+{
+public:
+    explicit JIComponent(juce::AudioProcessorValueTreeState& apvts) : apvts(apvts)
+    {
+        enabledButton.setButtonText("ON");
+        enabledButton.setClickingTogglesState(true);
+        enabledButton.setColour(juce::TextButton::buttonColourId,   juce::Colour(0xff333333));
+        enabledButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff2277cc));
+        enabledButton.setColour(juce::TextButton::textColourOffId,  juce::Colour(0xff888888));
+        enabledButton.setColour(juce::TextButton::textColourOnId,   juce::Colours::white);
+        addAndMakeVisible(enabledButton);
+        enabledAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+            apvts, "jiEnabled", enabledButton);
+
+        keyKnob.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+        keyKnob.setRange(0.0, 11.0, 1.0);
+        keyKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        addAndMakeVisible(keyKnob);
+
+        keyLabel.setText("Root Key", juce::dontSendNotification);
+        keyLabel.setJustificationType(juce::Justification::centred);
+        keyLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+        addAndMakeVisible(keyLabel);
+
+        keyValueLabel.setJustificationType(juce::Justification::centred);
+        keyValueLabel.setFont(juce::Font(28.0f, juce::Font::bold));
+        keyValueLabel.setColour(juce::Label::textColourId, juce::Colour(0xff44aaff));
+        addAndMakeVisible(keyValueLabel);
+
+        keyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            apvts, "jiKey", keyKnob);
+
+        auto updateKeyLabel = [this]()
+        {
+            static const char* names[] = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
+            int idx = juce::jlimit(0, 11, (int)std::round(keyKnob.getValue()));
+            keyValueLabel.setText(names[idx], juce::dontSendNotification);
+        };
+        keyKnob.onValueChange = updateKeyLabel;
+        updateKeyLabel();
+
+        infoLabel.setJustificationType(juce::Justification::centred);
+        infoLabel.setColour(juce::Label::textColourId, juce::Colour(0xff888888));
+        infoLabel.setFont(juce::Font(11.0f));
+        infoLabel.setText("5-limit just intonation\n(Ptolemy's intense diatonic)", juce::dontSendNotification);
+        addAndMakeVisible(infoLabel);
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        g.setColour(juce::Colour(0xff1a1a1a));
+        g.fillAll();
+        g.setColour(juce::Colours::white);
+        g.setFont(juce::Font(13.0f, juce::Font::bold));
+        g.drawText("JUST INTONATION", getLocalBounds().removeFromTop(22).toFloat(),
+                   juce::Justification::centred);
+    }
+
+    void resized() override
+    {
+        auto area    = getLocalBounds();
+        auto titleBar = area.removeFromTop(22);
+        enabledButton.setBounds(titleBar.removeFromRight(44).reduced(3, 4));
+
+        int knobSize    = 90;
+        int labelH      = 18;
+        int valueLabelH = 36;
+        auto knobArea = area.withSizeKeepingCentre(knobSize, labelH + knobSize + valueLabelH);
+        keyLabel.setBounds(knobArea.removeFromTop(labelH));
+        keyKnob.setBounds(knobArea.removeFromTop(knobSize));
+        keyValueLabel.setBounds(knobArea.removeFromTop(valueLabelH));
+
+        infoLabel.setBounds(area.removeFromBottom(36).reduced(20, 0));
+    }
+
+private:
+    juce::AudioProcessorValueTreeState& apvts;
+
+    juce::TextButton enabledButton;
+    juce::Slider     keyKnob;
+    juce::Label      keyLabel;
+    juce::Label      keyValueLabel;
+    juce::Label      infoLabel;
+
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enabledAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> keyAttachment;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(JIComponent)
+};
+
+//==============================================================================
 class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor
 {
 public:
@@ -602,6 +918,9 @@ private:
     LFOComponent            lfoComponent;
     HammondComponent        hammondComponent;
     RotaryComponent         rotaryComponent;
+    AirComponent            airComponent;
+    LadderComponent         ladderComponent;
+    JIComponent             jiComponent;
     juce::TabbedComponent   tabs { juce::TabbedButtonBar::TabsAtTop };
 
     // APVTS Attachments

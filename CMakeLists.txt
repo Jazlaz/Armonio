@@ -44,6 +44,7 @@ target_link_libraries(Armonio
         PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_devices
+        juce::juce_dsp
         PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags

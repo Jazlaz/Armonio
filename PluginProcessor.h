@@ -1,7 +1,15 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
 #include "SynthAudioSource.h"
+
+#if JUCE_LINUX
+ #include <fcntl.h>
+ #include <unistd.h>
+ #include <sys/ioctl.h>
+ #include <linux/spi/spidev.h>
+#endif
 
 //==============================================================================
 class AudioPluginAudioProcessor final : public juce::AudioProcessor,
@@ -55,6 +63,9 @@ public:
 
     juce::MidiKeyboardState keyboardState;
     std::atomic<bool> muted { false };
+    float muteGain { 1.0f };   // smoothed 0..1, ramped per-block to avoid clicks
+
+    int getActiveVoiceCount() const noexcept { return synthAudioSource.getActiveVoiceCount(); }
 
 private:
     // ---- MIDI device auto-detection ----
@@ -76,8 +87,9 @@ private:
     void updateSynthParameters();
 
     // ---- Rotary (Leslie) effect ----
-    bool  rotaryEnabled = false;
-    bool  rotaryFast    = false;
+    std::atomic<bool> rotaryEnabled { false };
+    float             rotaryGain    = 0.0f;   // smoothed 0..1 crossfade between dry and Leslie wet
+    std::atomic<bool> rotaryFast    { false };
 
     static constexpr int kRotaryBufSize = 8192; // power-of-2, ~186ms at 44100
     std::array<float, kRotaryBufSize> hornBuffer{};
@@ -85,8 +97,12 @@ private:
     int   hornWrite = 0;
     int   drumWrite = 0;
 
-    float hornAngle = 0.0f;  // 0..1 normalised phase
-    float drumAngle = 0.0f;
+    // Leslie rotation state — tracked as sin/cos pairs so the per-sample trig
+    // calls become a rotation-matrix recursion (4 muladds/sample, no std::sin).
+    // cDelta/sDelta for the per-sample step are recomputed once per block from
+    // hornSpeed/drumSpeed.
+    float sHorn = 0.0f, cHorn = 1.0f;   // sin/cos of horn phase
+    float sDrum = 0.0f, cDrum = 1.0f;   // sin/cos of drum phase
     float hornSpeed = 0.8f;  // Hz (current, ramps toward target)
     float drumSpeed = 0.6f;
 
@@ -98,6 +114,35 @@ private:
     float lpCoeff  = 0.0f;   // one-pole crossover coefficient
     float lpState  = 0.0f;   // mono LP filter state
     double currentSampleRate = 44100.0;
+
+    // ---- Ladder filter (Moog-style 4-pole) ----
+    juce::dsp::LadderFilter<float> ladderFilter;
+    std::atomic<bool> ladderEnabled { false };
+
+#if JUCE_LINUX
+    // ---- SPI / MCP3008 direct ADC reading (Pi only) ----
+    int spiFd0 = -1;   // /dev/spidev0.0  chip #1 CE0
+    int spiFd1 = -1;   // /dev/spidev0.1  chip #2 CE1
+    int readMCP3008 (int fd, int channel) noexcept;
+    static constexpr int kAdcThreshold = 8;
+    std::array<int, 16> lastAdcRaw {};   // last raw values, threshold detection
+#endif
+
+    int timerTickCount = 0;  // counts 50ms ticks; MIDI scan every 40th (= 2s)
+
+    // JI button (CC 32) is now a gate, not a toggle:
+    //   tap (press + release with no note in between)  → toggle jiEnabled
+    //   hold + Note On                                 → set jiKey to note%12,
+    //                                                    enable JI, swallow note
+    bool jiButtonHeld          = false;
+    bool jiNotePickedDuringHold = false;
+
+    // Knob mode set by CC 90 from the GPIO bridge:
+    //   0 = Mode 1 (Hammond + ADSR + harmonics)
+    //   1 = Mode 2 (Filter cutoff/res/drive + air high-cut)
+    //   2 = Mode 3 (reserved for future use)
+    std::atomic<int> knobMode { 0 };
+    int lastKnobMode = 0;   // previous mode; when it changes, chip-1 ADC cache is invalidated
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioPluginAudioProcessor)
 };

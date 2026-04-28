@@ -10,8 +10,8 @@ It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice A
 
 | Platform | File |
 |----------|------|
-| Windows VST3 | [Armonio-v1.0-Windows-VST3.zip](https://github.com/GiannisKarampinis/Armonio/releases/download/v1.0/Armonio-v1.0-Windows-VST3.zip) |
-| Raspberry Pi Zero 2 W (Standalone) | [Armonio-v1.0-Pi-Zero2W.zip](https://github.com/GiannisKarampinis/Armonio/releases/download/v1.0/Armonio-v1.0-Pi-Zero2W.zip) |
+| Windows VST3 | [Armonio-v1.0-Windows-VST3.zip](https://github.com/Jazlaz/Armonio/releases/download/v1.0/Armonio-v1.0-Windows-VST3.zip) |
+| Raspberry Pi Zero 2 W (Standalone) | [Armonio-v1.0-Pi-Zero2W.zip](https://github.com/Jazlaz/Armonio/releases/download/v1.0/Armonio-v1.0-Pi-Zero2W.zip) |
 
 ---
 

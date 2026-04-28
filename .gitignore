@@ -9,3 +9,9 @@ build-*/
 *.pdb
 CMakeFiles/
 CMakeCache.txt
+pics/
+CLAUDE.md
+Armonio-v1.0-Pi-Zero2W.zip
+Armonio-v1.0-Windows-VST3.zip
+Knobs Buttons Mapping.docx
+midi_schematic.html

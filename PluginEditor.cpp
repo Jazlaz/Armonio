@@ -6,10 +6,13 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor(AudioPluginAudi
     : AudioProcessorEditor(&p),
       processorRef(p),
       keyboardComponent(p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard),
-      adsrGraph(p.getValueTreeState(), p.muted),
+      adsrGraph(p.getValueTreeState(), p.muted, [&p]() { return p.getActiveVoiceCount(); }),
       lfoComponent(p.getValueTreeState()),
       hammondComponent(p.getValueTreeState()),
-      rotaryComponent(p.getValueTreeState())
+      rotaryComponent(p.getValueTreeState()),
+      airComponent(p.getValueTreeState()),
+      ladderComponent(p.getValueTreeState()),
+      jiComponent(p.getValueTreeState())
 {
     // ==================== WAVEFORM SELECTOR ====================
     waveformLabel.setText("Waveform", juce::dontSendNotification);
@@ -61,6 +64,9 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor(AudioPluginAudi
     tabs.addTab("HARMONIC LFO", juce::Colour(0xff2a2a2a), &lfoComponent,     false);
     tabs.addTab("HAMMOND",      juce::Colour(0xff2a2a2a), &hammondComponent,  false);
     tabs.addTab("ROTARY",       juce::Colour(0xff2a2a2a), &rotaryComponent,   false);
+    tabs.addTab("AIR",          juce::Colour(0xff2a2a2a), &airComponent,      false);
+    tabs.addTab("LADDER",       juce::Colour(0xff2a2a2a), &ladderComponent,   false);
+    tabs.addTab("TUNING",       juce::Colour(0xff2a2a2a), &jiComponent,       false);
     addAndMakeVisible(tabs);
 
     // Keyboard
