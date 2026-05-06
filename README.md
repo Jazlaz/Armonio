@@ -2,7 +2,9 @@
 
 **Armonio** is a polyphonic additive synthesizer built with JUCE, designed to run fully headless on a **Raspberry Pi** as a standalone DAWless instrument.
 
-It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice ADSR, LFO, and automatic MIDI device detection — all controllable from a hardware MIDI controller with no screen required.
+It features Hammond-style drawbar registers, a Leslie rotary effect, per-voice ADSR, LFO, and USB and NTS MIDI input — all controllable from a hardware MIDI controller with no screen required.
+
+Here is a Video Demo: https://www.youtube.com/watch?v=JYwFRLIfnu8
 
 ---
 
